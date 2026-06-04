@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CS231N — Audio · Prompt · Image Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #111316;
+      --surface:   #1c1f24;
+      --border:    #2a2d34;
+      --accent:    #6c8ebf;
+      --accent2:   #8ebf6c;
+      --text:      #d4d8e0;
+      --text-dim:  #7a8090;
+      --tag-bg:    #252933;
+      --active:    #1e2940;
+      --radius:    8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 220px;
+      min-width: 180px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar header {
+      padding: 16px 14px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+
+    #clip-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .clip-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: "JetBrains Mono", "Fira Mono", monospace;
+      font-size: 12px;
+      color: var(--text-dim);
+      border-left: 3px solid transparent;
+      transition: background .12s, color .12s, border-color .12s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clip-item:hover  { background: #22262e; color: var(--text); }
+    .clip-item.active {
+      background: var(--active);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    /* ── Main panel ── */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      padding: 14px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    #ytid-label {
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--accent);
+      min-width: 140px;
+    }
+
+    audio {
+      flex: 1;
+      height: 36px;
+      accent-color: var(--accent);
+      filter: invert(0.85) hue-rotate(190deg) saturate(0.7);
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    /* Caption card spans both columns */
+    #card-caption { grid-column: 1 / 3; }
+
+    #caption-text {
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* Tags */
+    #tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: var(--accent2);
+    }
+
+    /* Visual prompt */
+    #visual-text {
+      color: var(--text-dim);
+      font-style: italic;
+      line-height: 1.7;
+    }
+
+    /* Image cards */
+    .img-card img {
+      width: 100%;
+      border-radius: 4px;
+      display: block;
+      background: var(--bg);
+      aspect-ratio: 1;
+      object-fit: cover;
+    }
+
+    /* Empty state */
+    #empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+    #empty-state p { margin-top: 8px; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<nav id="sidebar">
+  <header>Clips</header>
+  <div id="clip-list"></div>
+</nav>
+
+<main id="main">
+  <div id="top-bar">
+    <span id="ytid-label">—</span>
+    <audio id="player" controls></audio>
+  </div>
+
+  <div id="content" style="position:relative;">
+    <div id="empty-state">
+      <div style="font-size:32px;">🎵</div>
+      <p>Select a clip from the sidebar</p>
+    </div>
+
+    <div class="card" id="card-caption" style="display:none;">
+      <div class="card-title">Caption</div>
+      <p id="caption-text"></p>
+      <div id="tag-list"></div>
+    </div>
+
+    <div class="card" id="card-visual" style="display:none;">
+      <div class="card-title">Visual Prompt</div>
+      <p id="visual-text"></p>
+    </div>
+
+    <div class="card img-card" id="card-sdxl" style="display:none;">
+      <div class="card-title">SDXL-Turbo</div>
+      <img id="img-sdxl" src="" alt="SDXL-Turbo output" />
+    </div>
+
+    <div class="card img-card" id="card-sd" style="display:none;">
+      <div class="card-title">SD-Turbo</div>
+      <img id="img-sd" src="" alt="SD-Turbo output" />
+    </div>
+  </div>
+</main>
+
+<script>
+  const player    = document.getElementById("player");
+  const ytidLabel = document.getElementById("ytid-label");
+  const clipList  = document.getElementById("clip-list");
+  const emptyState = document.getElementById("empty-state");
+
+  const cardCaption = document.getElementById("card-caption");
+  const cardVisual  = document.getElementById("card-visual");
+  const cardSd      = document.getElementById("card-sd");
+  const cardSdxl    = document.getElementById("card-sdxl");
+
+  const captionText = document.getElementById("caption-text");
+  const tagList     = document.getElementById("tag-list");
+  const visualText  = document.getElementById("visual-text");
+  const imgSd       = document.getElementById("img-sd");
+  const imgSdxl     = document.getElementById("img-sdxl");
+
+  let activeItem = null;
+
+  async function loadClips() {
+    const res = await fetch("/api/clips");
+    const ytids = await res.json();
+    ytids.forEach(ytid => {
+      const el = document.createElement("div");
+      el.className = "clip-item";
+      el.textContent = ytid;
+      el.addEventListener("click", () => selectClip(ytid, el));
+      clipList.appendChild(el);
+    });
+    // Auto-select first clip
+    if (ytids.length > 0) clipList.firstChild.click();
+  }
+
+  async function selectClip(ytid, el) {
+    if (activeItem) activeItem.classList.remove("active");
+    activeItem = el;
+    el.classList.add("active");
+
+    ytidLabel.textContent = ytid;
+
+    // Update audio source and play
+    player.src = `/audio/${ytid}.wav`;
+    player.load();
+    player.play().catch(() => {}); // ignore autoplay policy errors
+
+    // Fetch metadata
+    const res = await fetch(`/api/clip/${ytid}`);
+    const data = await res.json();
+
+    // Caption
+    captionText.textContent = data.caption ?? "";
+
+    // Aspect tags
+    tagList.innerHTML = "";
+    (data.aspect_list ?? []).forEach(tag => {
+      const span = document.createElement("span");
+      span.className = "tag";
+      span.textContent = tag;
+      tagList.appendChild(span);
+    });
+
+    // Visual prompt
+    visualText.textContent = data.visual_prompt ?? "";
+
+    // Images (cache-bust with timestamp to force reload on clip switch)
+    const ts = Date.now();
+    imgSd.src   = `/image/sd-turbo/${ytid}.png?t=${ts}`;
+    imgSdxl.src = `/image/sdxl-turbo/${ytid}.png?t=${ts}`;
+
+    // Show cards, hide empty state
+    emptyState.style.display = "none";
+    cardCaption.style.display = "";
+    cardVisual.style.display  = "";
+    cardSd.style.display      = "";
+    cardSdxl.style.display    = "";
+  }
+
+  loadClips();
+</script>
+</body>
+</html>
