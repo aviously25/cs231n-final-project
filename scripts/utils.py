@@ -12,9 +12,15 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 COSTS_PATH = Path("outputs/costs.jsonl")
 ERRORS_PATH = Path("outputs/errors.jsonl")
 
-# GPT-4o-mini pricing (USD per token)
-_INPUT_COST_PER_TOKEN = 0.15 / 1_000_000
-_OUTPUT_COST_PER_TOKEN = 0.60 / 1_000_000
+# USD per 1M tokens — update if switching models
+_MODEL_PRICING = {
+    "gpt-4o-mini":  (0.15,  0.60),
+    "gpt-5.4-nano": (0.20,  1.25),
+    "gpt-5.4-mini": (0.75,  4.50),
+    "gpt-5.4":      (2.50, 15.00),
+    "gpt-5.5":      (5.00, 30.00),
+}
+_DEFAULT_PRICING = (1.00, 5.00)  # conservative fallback for unknown models
 
 
 def load_filtered_df(csv_path: str | Path) -> pd.DataFrame:
@@ -61,7 +67,8 @@ def append_flat_cost(ytid: str, model: str, cost_usd: float) -> None:
 
 
 def append_cost(ytid: str, model: str, input_tokens: int, output_tokens: int) -> float:
-    cost = input_tokens * _INPUT_COST_PER_TOKEN + output_tokens * _OUTPUT_COST_PER_TOKEN
+    in_per_m, out_per_m = _MODEL_PRICING.get(model, _DEFAULT_PRICING)
+    cost = input_tokens * in_per_m / 1_000_000 + output_tokens * out_per_m / 1_000_000
     entry = {
         "ytid": ytid,
         "model": model,

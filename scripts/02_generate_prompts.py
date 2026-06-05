@@ -28,7 +28,7 @@ except ImportError:
 
 PROMPTS_DIR = Path("outputs/prompts")
 CSV_PATH = Path("datasets/musiccaps-public.csv")
-MODEL = "gpt-5.5"
+MODEL = "gpt-5.4-mini"
 
 _SYSTEM_PROMPT = (
     "You are a creative visual artist. Given a music description, respond with a single "
@@ -55,7 +55,7 @@ def call_with_backoff(client: OpenAI, messages: list[dict], max_retries: int = 5
             return client.chat.completions.create(
                 model=MODEL,
                 messages=messages,
-                max_tokens=200,
+                max_completion_tokens=200,
                 temperature=0.8,
             )
         except Exception as e:
